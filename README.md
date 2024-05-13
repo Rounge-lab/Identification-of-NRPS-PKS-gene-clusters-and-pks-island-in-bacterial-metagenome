@@ -1,6 +1,6 @@
-# Identification of pks+ bacterial genomes in CRCbiome
+# Identification of NRPS and PKS gene clusters, particularly the \emph{pks} island, in bacterial genomes from CRCbiome
 
-This repository contains all code developed for the master's project "Identification of pks+ Bacterial Genomes in CRCbiome".
+This repository contains all code and scripts developed for the master's project "Identification of NRPS and PKS gene clusters, particularly the \emph{pks} island, in bacterial genomes from CRCbiome".
 
 Three Snakemake-based pipelines have been developed. For a detailed description of each pipeline, please refer to the links below.
 1. [MAG-based identification of BGCs (not executed)](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/blob/main/pipeline1/README.md).
