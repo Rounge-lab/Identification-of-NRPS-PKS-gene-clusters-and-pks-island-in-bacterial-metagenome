@@ -32,4 +32,4 @@ The pipeline was designed to operate within [TSD](https://www.uio.no/english/ser
 
 The pipeline comprises a total of 11 rules, including 1 "rule all", 2 rules for the core mapping process utilizing Bowtie2 and SAMtools, 2 for obtaining mapping statistics utilizing SAMtools, and the remaining 6 rules for organizing the statistical data for further analysis. Three custom Python scripts are incorporated for data extraction and file concatenation, and two BED files are required for generating mapping statistics. The Python scripts and BED files are available [here](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pineline3/scripts).
 
-![pipeline](../figures/read_mapping.png)
+![pipeline](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/blob/main/figures/pipeline3.png)
