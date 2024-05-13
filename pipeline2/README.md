@@ -5,7 +5,7 @@ This pipeline is developed to detect biosynthetic gene clusters (BGCs) within me
 
 ## Installation
 
-The necessary software and dependencies can be installed using the provided YAML files. The YAML files for the Conda environments are available [here](https://github.com/Rounge-lab/Identification-of-Biosynthetic-Gene-Clusters-and-the-pks-island/tree/main/antismash_dram/envs).
+The necessary software and dependencies can be installed using the provided YAML files. The YAML files for the Conda environments are available [here](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pipeline2/envs).
 ```
 conda env create -f [environment].yaml
 ```
@@ -32,7 +32,7 @@ snakemake -j [number_of_cores] --use-conda --conda-prefix [dir_conda_envs] --pro
 ```
 - Replace "[number_of_cores]" with the desired number of cores to be used by Snakemake for parallel execution.
 - Replace "[directory_conda_environments]" with the actual path of your Conda environments directory.
-- [config/cluster/]() contains the profile configuration files that customize Snakemake's behavior for specific execution environments.
+- The folder [config/cluster/](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pipeline2/config/cluster) contains the profile configuration files that customize Snakemake's behavior for specific execution environments.
 - Replace "[number of sec]" with the desired latency wait time in seconds, which is the time Snakemake waits for file system changes before considering a job ready to be executed.
 
 
@@ -43,6 +43,6 @@ The pipeline was designed to operate within [TSD](https://www.uio.no/english/ser
 
 ## Workflow Overview
 
-The pipeline comprises a total of 12 rules, including 1 "rule all", 5 rules for the core detection and annotation process, and the remaining 6 rules for extracting and concatenating output data for further data analysis. Eight custom Python scripts are incorporated for file format conversion, data extraction, and file concatenation. The Python scripts are available [here](https://github.com/Rounge-lab/Identification-of-Biosynthetic-Gene-Clusters-and-the-pks-island/tree/main/antismash_dram/scripts).
+The pipeline comprises a total of 12 rules, including 1 "rule all", 5 rules for the core detection and annotation process, and the remaining 6 rules for extracting and concatenating output data for further data analysis. Eight custom Python scripts are incorporated for file format conversion, data extraction, and file concatenation. The Python scripts are available [here](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pipeline2/scripts).
 
 ![pipeline](../figures/antismash_dram.png)
