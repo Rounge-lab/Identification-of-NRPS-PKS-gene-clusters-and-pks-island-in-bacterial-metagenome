@@ -45,4 +45,4 @@ The pipeline was designed to operate within [TSD](https://www.uio.no/english/ser
 
 The pipeline comprises a total of 12 rules, including 1 "rule all", 5 rules for the core detection and annotation process, and the remaining 6 rules for extracting and concatenating output data for further data analysis. Eight custom Python scripts are incorporated for file format conversion, data extraction, and file concatenation. The Python scripts are available [here](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pipeline2/scripts).
 
-![pipeline](../figures/antismash_dram.png)
+![pipeline](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/blob/main/figures/pipeline2.png)
