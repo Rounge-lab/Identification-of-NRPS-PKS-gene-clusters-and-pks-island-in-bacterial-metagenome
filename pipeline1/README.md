@@ -1,4 +1,4 @@
-# Pipeline for BGC Detection and Gene Annotation (not executed)
+# MAG-based identification of BGCs (not executed)
 
 This pipeline is developed to detect biosynthetic gene clusters (BGCs) within metagenome assembled genomes (MAGs), and subsequently annotate the genes within the detected gene clusters. The BGC detection process is performed by the tools [antiSMASH](https://github.com/antismash/antismash) and [SanntiS](https://github.com/Finn-Lab/SanntiS), and the gene annotation process is performed by the tool [DRAM](https://github.com/WrightonLabCSU/DRAM).
 
