@@ -32,4 +32,4 @@ The pipeline was designed to operate within [TSD](https://www.uio.no/english/ser
 
 The pipeline comprises a total of 10 rules, including 1 "rule all", 3 rules for the antiSMASH detection process and the subsequent DRAM annotation, and the remaining 6 rules for the SanntiS detection process and the subsequent DRAM annotation. Two custom Python scripts are incorporated for file format conversion and file modification. The Python scripts are available [here](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pipeline1/scripts).
 
-![pipeline](../figures/antismash_sanntis_dram.png)
+![pipeline](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/blob/main/figures/pipeline1.png)
