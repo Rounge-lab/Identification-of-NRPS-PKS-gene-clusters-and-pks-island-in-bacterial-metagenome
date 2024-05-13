@@ -1,4 +1,4 @@
-# Identification of NRPS and PKS gene clusters, particularly the \emph{pks} island, in bacterial genomes from CRCbiome
+# Identification of NRPS and PKS gene clusters, particularly the pks island, in bacterial metagenome from CRCbiome
 
 This repository contains all code and scripts developed for the master's project "Identification of NRPS and PKS gene clusters, particularly the \emph{pks} island, in bacterial genomes from CRCbiome".
 
