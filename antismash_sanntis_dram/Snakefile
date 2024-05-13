@@ -1,0 +1,215 @@
+import pandas as pd
+
+# replace PATH with the actual path to the metagenome assembled genomes
+genome_path = "PATH"
+
+# the file "genome_information.tsv" contains sensitive information and is therefore empty
+genomes = pd.read_csv("data/genome_information.tsv", sep="\t", usecols=[0], squeeze=True)
+mags = pd.read_csv("data/genome_information.tsv", sep="\t", usecols=[1], squeeze=True)
+
+
+rule all:
+    input:
+        expand("dram_antismash/{mag}/{genome}/annotations.tsv", zip, mag=mags, genome=genomes),
+        expand("dram_sanntis/{mag}/{genome}/annotations.tsv", zip, mag=mags, genome=genomes)
+
+# Comment out the above inputs and uncomment the inputs below to run each rule separately
+        # expand("antismash/{mag}/{genome}/{genome}.gbk", zip, mag=mags, genome=genomes), # antismash
+        # expand("antismash/{mag}/{genome}/{genome}.faa", zip, mag=mags, genome=genomes), # gbk_to_faa
+        # expand("dram_antismash/{mag}/{genome}/annotations.tsv", zip, mag=mags, genome=genomes), # dram_antismash
+
+        # expand("sanntis/{mag}/{genome}/{genome}.fasta.prodigal.faa", zip, mag=mags, genome=genomes), # sanntis_prodigal
+        # expand("sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa", zip, mag=mags, genome=genomes), # sanntis_asterix
+        # expand("sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gff3", zip, mag=mags, genome=genomes), # sanntis_interproscan
+        # expand("sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb", zip, mag=mags, genome=genomes), # sanntis_build_gb
+        # expand("sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb.sanntis/{genome}.fna.prodigal.faa.gb.prodigal.faa", zip, mag=mags, genome=genomes), # sanntis
+        # expand("sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb.sanntis/{genome}.fna.prodigal.faa.gb.sanntis.full.gff", zip, mag=mags, genome=genomes), # sanntis
+        # expand("dram_sanntis/{mag}/{genome}/annotations.tsv", zip, mag=mags, genome=genomes) # dram_sanntis
+
+
+rule antismash:
+    """
+        Run antiSMASH, uses Prodigal for bacterial gene prediction.
+    """
+    input:
+        genome_path+"{mag}/{genome}.fasta"
+    output:
+        "antismash/{mag}/{genome}/{genome}.gbk"
+    conda:
+        "envs/antismash.yaml"
+    threads:
+        1
+    shell:
+        """
+        antismash --genefinding-tool prodigal --output-dir antismash/{wildcards.mag}/{wildcards.genome} --cpus {threads} {input}
+        """
+
+
+rule gbk_to_faa:
+    """
+        Covert antiSMASH GBK output to FASTA format.
+    """
+    input:
+        "antismash/{mag}/{genome}/{genome}.gbk"
+    output:
+        temp("antismash/{mag}/{genome}/{genome}.faa")
+    params:
+        path="antismash/{mag}/{genome}",
+        script="scripts/convert_gbk_to_faa.py",
+        module="Biopython/1.79-foss-2022a",
+    shell:
+        """
+        module load {params.module}
+        for file in {params.path}/*.region*.gbk ; do 
+            python3 {params.script} $file {params.path}/$(basename $file .gbk).faa
+        done
+        touch {params.path}/empty.region001.faa
+        for file in {params.path}/*.region*.faa ; do 
+            cat $file >> {output}
+        done
+        rm {params.path}/*.region*.faa
+        """
+
+
+rule dram_antismash:
+    """
+        Run DRAM using antiSMASH-generated ouput.
+        The UniRef90 database is provided. 
+        The argument "annotate_genes" annotates already predicted genes.
+    """
+    input:
+        "antismash/{mag}/{genome}/{genome}.faa"
+    output:
+        "dram_antismash/{mag}/{genome}/annotations.tsv"
+    conda:
+        "envs/dram.yaml"
+    threads:
+        30
+    shell:
+        """
+        module purge
+        if [[ -s {input} ]]; then
+            DRAM.py annotate_genes -i {input} -o dram_antismash/{wildcards.mag}/{wildcards.genome} --use_uniref --threads {threads}
+        else
+            touch {output}
+        fi
+        """
+
+
+"""
+    Sanntis could not be executed directly on TSD due to version incompatibilities during the installation of InterProScan.
+    However, dividing the SanntiS execution into multiple steps allowed it to be successfully executed on TSD.
+    The following five rules are all aimed at executing SanntiS.
+"""
+
+
+rule sanntis_prodigal:
+    """
+        Run Prodigal for gene prediction.
+    """
+    input:
+        genome_path+"{mag}/{genome}.fasta"
+    output:
+        "sanntis/{mag}/{genome}/{genome}.fasta.prodigal.faa"
+    conda:
+        "envs/prodigal.yaml"
+    shell:
+        """
+        prodigal -i {input} -a {output} -p meta
+        """
+
+
+rule sanntis_asterix:
+    """
+        Remove asterix from Prodigal output.
+    """
+    input:
+        "sanntis/{mag}/{genome}/{genome}.fasta.prodigal.faa"
+    output:
+        "sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa"
+    params:
+        script="scripts/asterix.py"
+    shell:
+        """
+        python3 {params.script} {input} {output}
+        """
+
+
+rule sanntis_interproscan:
+    """
+        Run InterProScan for gene anntotation.
+    """
+    input:
+        "sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa"
+    output:
+        "sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gff3"
+    params:
+        module="InterProScan_data/5.55-88.0-foss-2021a"
+    threads:
+        30
+    shell:
+        """
+        module load {params.module}
+        interproscan.sh -i {input} -o {output} -f GFF3 -dp -appl Pfam,TIGRFAM,PRINTS,ProSitePatterns,Gene3D -cpu {threads}
+        """
+
+
+rule sanntis_build_gb:
+    """
+        Use "sanntis_build_gb" to build BGK files.
+    """
+    input:
+        nucleotide=genome_path+"{mag}/{genome}.fasta",
+        amino_acid="sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa"
+    output:
+        "sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb"
+    conda:
+        "envs/sanntis.yaml"
+    shell:
+        """
+        sanntis_build_gb -n {input.nucleotide} -a {input.amino_acid} -o {output}
+        """
+
+
+rule sanntis:
+    """
+        Run SanntiS using precomputed InterProScan output.
+    """
+    input:
+        gff3="sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gff3",
+        gb="sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb"
+    output:
+        faa="sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb.sanntis/{genome}.fna.prodigal.faa.gb.prodigal.faa",
+        gff="sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb.sanntis/{genome}.fna.prodigal.faa.gb.sanntis.full.gff"
+    conda:
+        "envs/sanntis.yaml"
+    shell:
+        """
+        module purge
+        sanntis --ip-file {input.gff3} {input.gb} --outdir sanntis/{wildcards.mag}/{wildcards.genome}
+        """
+
+
+rule dram_sanntis:
+    """
+        Run DRAM using SanntiS-generated ouput.
+        The UniRef90 database is provided. 
+        The argument "annotate_genes" annotates already predicted genes.
+    """
+    input:
+        "sanntis/{mag}/{genome}/{genome}.fna.prodigal.faa.gb.sanntis/{genome}.fna.prodigal.faa.gb.prodigal.faa"
+    output:
+        "dram_sanntis/{mag}/{genome}/annotations.tsv"
+    conda:
+        "envs/dram.yaml"
+    threads:
+        30
+    shell:
+        """
+        module purge
+        if [[ -s {input} ]]; then
+            DRAM.py annotate_genes -i {input} -o dram_sanntis/{wildcards.mag}/{wildcards.genome} --use_uniref --threads {threads}
+        else
+            touch {output}
+        fi
+        """

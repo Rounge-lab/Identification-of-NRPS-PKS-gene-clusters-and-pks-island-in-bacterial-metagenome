@@ -1,0 +1,255 @@
+import pandas as pd
+
+# replace PATH with the actual path to the metagenome assembled genomes
+reads_path = "PATH"
+
+# the file "genome_information.tsv" contains sensitive information and is therefore empty
+samples = pd.read_csv("data/read_by_sample.tsv", sep="\t", usecols=[0], squeeze=True)
+reference = ["pks_island", "ecoli_genome"]
+
+
+rule all:
+    input:
+        "results/idxstats_pks.tsv",
+        "results/idxstats_ecoli.tsv",
+        "results/coverage_pks.tsv",
+        "results/coverage_ecoli.tsv",
+        "results/bedcov_genes.tsv",
+        "results/bedcov_domains.tsv"
+
+# Comment out the above inputs and uncomment the inputs below to run each rule separately
+        # expand("index/{ref}/{ref}.1.bt2", ref=reference), # ref_index
+        # expand("mapping/{ref}/{sample}/{sample}.bam", ref=reference, sample=samples), # mapping
+        # expand("idxstats/{ref}/{sample}.idxstats.out", ref=reference, sample=samples), # statistics
+        # expand("coverage/{ref}/{sample}.coverage.out", ref=reference, sample=samples), # statistics
+        # expand("bedcov/clb_genes/{sample}.bedcov.out", sample=samples), # bedcov
+        # expand("bedcov/clb_domains/{sample}.bedcov.out", sample=samples), # bedcov
+        # "results/idxstats_pks.tsv", # idxstats_pks_result
+        # "results/idxstats_ecoli.tsv", # idxstats_ecoli_result
+        # "results/coverage_pks.tsv", # coverage_pks_result
+        # "results/coverage_ecoli.tsv", # coverage_ecoli_result
+        # "results/bedcov_genes.tsv", # clb_genes_result
+        # "results/bedcov_domains.tsv" # clb_domains_result
+
+
+rule ref_index:
+    """
+        Create bowtie index for reference genomes.
+    """
+    input:
+        "ref/{ref}.fasta"
+    output:
+        "index/{ref}/{ref}.1.bt2"
+    conda:
+        "envs/bowtie2_samtools.yaml"
+    shell:
+        """
+        mkdir -p index
+        mkdir -p index/{wildcards.ref}
+        bowtie2-build {input} index/{wildcards.ref}/{wildcards.ref}
+        """
+
+
+rule mapping:
+    """
+        Mapping sequencing reads against indexed reference genomes.
+        Covert the SAM output to BAM format.
+    """
+    input:
+        R1=reads_path+"{sample}/sequence_quality_control/{sample}_QC_R1.fastq.gz",
+        R2=reads_path+"{sample}/sequence_quality_control/{sample}_QC_R2.fastq.gz",
+        ref_index= "index/{ref}/{ref}.1.bt2"
+    output:
+        sam=temp("mapping/{ref}/{sample}/{sample}.sam"),
+        bam="mapping/{ref}/{sample}/{sample}.bam"
+    conda:
+        "envs/bowtie2_samtools.yaml"
+    params:
+        ref_index="index/{ref}/{ref}"
+    threads:
+        10
+    shell:
+        """
+        bowtie2 -x {params.ref_index} -1 {input.R1} -2 {input.R2} -S {output.sam} -p {threads}
+        samtools view -@ {threads} -bS {output.sam} > {output.bam}
+        """
+
+
+rule statistics:
+    """
+        Sort and index the BAM files.
+        Summarize the alignment statistics using the SAMtools functions "idxstats" and "coverage".
+    """
+    input:
+        bam="mapping/{ref}/{sample}/{sample}.bam"
+    output:
+        bam_sorted=temp("mapping/{ref}/{sample}/{sample}.sorted.bam"),
+        bam_indexed=temp("mapping/{ref}/{sample}/{sample}.sorted.bam.bai"),
+        idxstats="idxstats/{ref}/{sample}.idxstats.out",
+        coverage="coverage/{ref}/{sample}.coverage.out"
+    conda:
+        "envs/bowtie2_samtools.yaml"
+    params:
+        bed="scripts/clb_genes.bed"
+    shell:
+        """
+        samtools sort {input.bam} -o {output.bam_sorted}
+        samtools index {output.bam_sorted} {output.bam_indexed}
+        samtools idxstats {output.bam_sorted} > {output.idxstats}
+        samtools coverage {output.bam_sorted} > {output.coverage}
+        """
+
+
+rule bedcov: 
+    """
+        Get the coverage statistics for each clb gene using the SAMtools function "bedcov". 
+        A BED file containing the gene position is supplied.
+    """
+    input:
+        bam_sorted="mapping/pks_island/{sample}/{sample}.sorted.bam",
+        bam_indexed="mapping/pks_island/{sample}/{sample}.sorted.bam.bai"
+    output:
+        clb_genes="bedcov/clb_genes/{sample}.bedcov.out",
+        clb_domains="bedcov/clb_domains/{sample}.bedcov.out"
+    conda:
+        "envs/bowtie2_samtools.yaml"
+    params:
+        clb_genes="scripts/clb_genes.bed",
+        clb_domains="scripts/clb_domains.bed"
+    shell:
+        """
+        samtools bedcov {params.clb_genes} {input.bam_sorted} > {output.clb_genes}
+        samtools bedcov {params.clb_domains} {input.bam_sorted} > {output.clb_domains}
+        """
+
+
+rule idxstats_pks_result:
+    """
+        Extract relevant data from the output of "idxstats" for alignments to the pks island, and save it as a TSV file.
+    """
+    input:
+        expand("idxstats/pks_island/{sample}.idxstats.out", ref=reference, sample=samples)
+    output:
+        temp=temp("results/temp_idxstats_pks_list.tsv"),
+        final="results/idxstats_pks.tsv"
+    params:
+        script="scripts/idxstats.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.final}")
+
+
+rule idxstats_ecoli_result:
+    """
+        Extract relevant data from the output of "idxstats" for alignments to the E. coli genome, and save it as a TSV file.
+    """
+    input:
+        expand("idxstats/ecoli_genome/{sample}.idxstats.out", ref=reference, sample=samples)
+    output:
+        temp=temp("results/temp_idxstats_ecoli_list.tsv"),
+        final="results/idxstats_ecoli.tsv"
+    params:
+        script="scripts/idxstats.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.final}")
+
+
+rule coverage_pks_result:
+    """
+        Extract relevant data from the output of "coverage" for alignments to the pks island, and save it as a TSV file.
+    """
+    input:
+        expand("coverage/pks_island/{sample}.coverage.out", sample=samples)
+    output:
+        temp=temp("results/temp_coverage_pks_list.tsv"),
+        final="results/coverage_pks.tsv"
+    params:
+        script="scripts/coverage.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.final}")
+
+
+rule coverage_ecoli_result:
+    """
+        Extract relevant data from the output of "coverage" for alignments to the E. coli genome, and save it as a TSV file.
+    """
+    input:
+        expand("coverage/ecoli_genome/{sample}.coverage.out", sample=samples)
+    output:
+        temp=temp("results/temp_coverage_ecoli_list.tsv"),
+        final="results/coverage_ecoli.tsv"
+    params:
+        script="scripts/coverage.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.final}")
+
+
+rule clb_genes_result:
+    """
+        Extract relevant data from the output of "bedcov" for clb genes, and save it as a TSV file.
+    """
+    input:
+        expand("bedcov/clb_genes/{sample}.bedcov.out", sample=samples)
+    output:
+        temp=temp("results/temp_bedcov_genes_list.tsv"),
+        final="results/bedcov_genes.tsv"
+    params:
+        script="scripts/bedcov.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.final}")
+
+
+rule clb_domains_result:
+    """
+        Extract relevant data from the output of "bedcov" for clb domains, and save it as a TSV file.
+    """
+    input:
+        expand("bedcov/clb_domains/{sample}.bedcov.out", sample=samples)
+    output:
+        temp=temp("results/temp_bedcov_domains_list.tsv"),
+        final="results/bedcov_domains.tsv"
+    params:
+        script="scripts/bedcov.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.final}")

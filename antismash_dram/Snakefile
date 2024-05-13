@@ -1,0 +1,332 @@
+import pandas as pd
+
+# replace PATH with the actual path to the metagenome assembled genomes
+genome_path = "PATH"
+
+# the file "genome_information.tsv" contains sensitive information and is therefore empty
+genomes = pd.read_csv("data/genome_information.tsv", sep="\t", usecols=[0], squeeze=True)
+mags = pd.read_csv("data/genome_information.tsv", sep="\t", usecols=[1], squeeze=True)
+
+
+rule all:
+    input:
+        "results/antismash_cluster.tsv",
+        "results/antismash_gene.tsv",
+        "results/knownclusterblast.tsv",
+        "results/dram_annotation.tsv"
+
+# Comment out the above inputs and uncomment the inputs below to run each rule separately
+        # expand("antismash/{mag}/{genome}/{genome}.gbk", zip, mag=mags, genome=genomes), # antismash
+        # expand("antismash/{mag}/{genome}/{genome}.faa", zip, mag=mags, genome=genomes), # gbk_to_faa
+        # expand("dram/{mag}/{genome}/annotations.tsv", zip, mag=mags, genome=genomes), # dram (discarded)
+        # expand("antismash/{mag}/{genome}/{genome}_modified.faa", zip, mag=mags, genome=genomes), # modify_fasta_header
+        # "dram/modified_dram_input.faa", # concat_fasta
+        # "dram/annotations.tsv", # dram
+        # expand("results/{mag}/{genome}/antismash_cluster.tsv", zip, mag=mags, genome=genomes), # antismash_result
+        # expand("results/{mag}/{genome}/antismash_gene.tsv", zip, mag=mags, genome=genomes), # antismash_result
+        # "results/antismash_cluster.tsv", # antismash_concat_cluster
+        # "results/antismash_gene.tsv", # antismash_concat_gene
+        # expand("results/{mag}/{genome}/knownclusterblast.tsv", zip, mag=mags, genome=genomes), # knownclusterblast_result
+        # "results/knownclusterblast.tsv", # knownclusterblast_concat
+        # "results/dram_annotation.tsv", # dram_result
+        # "results/dram_annotation.tsv" # dram_concat (discarded)
+
+
+rule antismash:
+    """
+        Run antiSMASH, with the KnownClusterBlast functionality incorporated. 
+        Prodigal was used for bacterial gene prediction.
+    """
+    input:
+        genome_path+"{mag}/{genome}.fasta"
+    output:
+        "antismash/{mag}/{genome}/{genome}.gbk",
+    conda:
+        "envs/antismash.yaml"
+    threads:
+        1
+    shell:
+        """
+        antismash --genefinding-tool prodigal --output-dir antismash/{wildcards.mag}/{wildcards.genome} --cb-knownclusters --cpus {threads} {input}
+        """
+
+
+rule gbk_to_faa:
+    """
+        Covert antiSMASH GBK output to FASTA format.
+    """
+    input:
+        "antismash/{mag}/{genome}/{genome}.gbk"
+    output:
+        temp("antismash/{mag}/{genome}/{genome}.faa")
+    params:
+        path="antismash/{mag}/{genome}",
+        script="scripts/convert_gbk_to_faa.py",
+        module="Biopython/1.79-foss-2022a",
+    shell:
+        """
+        module load {params.module}
+        for file in {params.path}/*.region*.gbk ; do 
+            python3 {params.script} $file {params.path}/$(basename $file .gbk).faa
+        done
+        touch {params.path}/empty.region001.faa
+        for file in {params.path}/*.region*.faa ; do 
+            cat $file >> {output}
+        done
+        rm {params.path}/*.region*.faa
+        """
+
+
+# rule dram:
+#     """
+#         Run DRAM for each FASTA file separately.
+#         This rule was discarded due to long run time and the modified version comes below.
+#     """
+#     input:
+#         "antismash/{mag}/{genome}/{genome}.faa"
+#     output:
+#         "dram/{mag}/{genome}/annotations.tsv"
+#     conda:
+#         "envs/dram.yaml"
+#     threads:
+#         30
+#     shell:
+#         """
+#         module purge
+#         if [[ -s {input} ]]; then
+#             DRAM.py annotate_genes -i {input} -o dram/{wildcards.mag}/{wildcards.genome} --use_uniref --threads {threads}
+#         else
+#             touch {output}
+#         fi
+#         """
+
+
+rule modify_fasta_header:
+    """
+        Modify FASTA header to contain MAG and genome information before merging all files into one.
+    """
+    input:
+        "antismash/{mag}/{genome}/{genome}.faa"
+    output:
+        temp("antismash/{mag}/{genome}/{genome}_modified.faa")
+    params:
+        script="scripts/modify_fasta_header.py",
+        module="Biopython/1.79-foss-2022a"
+    shell:
+        """
+        module load {params.module}
+        if [[ -s {input} ]]; then
+            python3 {params.script} {input} {output}
+        else
+            touch {output}
+        fi
+        """
+
+
+rule concat_fasta:
+    """
+        Concatenate all FASTA files into one FASTA file.
+    """
+    input:
+        expand("antismash/{mag}/{genome}/{genome}_modified.faa", zip, mag=mags, genome=genomes)
+    output:
+        temp=temp("dram/temp_fasta_list.tsv"),
+        concat="dram/modified_dram_input.faa"
+    params:
+        script="scripts/concatenate_faa.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.concat}")
+
+
+rule dram:
+    """
+        Run DRAM with the UniRef90 database. 
+        The argument "annotate_genes" annotates already predicted genes.
+    """
+    input:
+        "dram/modified_dram_input.faa"
+    output:
+        "dram/annotations.tsv"
+    conda:
+        "envs/dram.yaml"
+    threads:
+        30
+    shell:
+        """
+        DRAM.py annotate_genes -i {input} -o dram --use_uniref --threads {threads}
+        """
+
+
+rule antismash_result:
+    """
+        Extract relevant data from antiSMASH GBK output. 
+        One input GBK file generates two TSV output files: one at the level of protocluster and the other at the level of gene.
+    """
+    input:
+        "antismash/{mag}/{genome}/{genome}.faa"
+    output:
+        cluster=temp("results/{mag}/{genome}/antismash_cluster.tsv"),
+        gene=temp("results/{mag}/{genome}/antismash_gene.tsv")
+    params:
+        script="scripts/antismash_extract.py",
+        module="Biopython/1.79-foss-2022a",
+        path="antismash/{mag}/{genome}"
+    shell:
+        """
+        module load {params.module}
+        touch {output.cluster}
+        touch {output.gene}
+        if [[ -s {input} ]]; then
+            for file in {params.path}/*.region*.gbk ; do
+                python3 {params.script} $file {params.path}/$(basename $file .gbk)_cluster.tsv {params.path}/$(basename $file .gbk)_gene.tsv
+            done
+            awk 'FNR>1 || NR==1' {params.path}/*_cluster.tsv >> {output.cluster}
+            awk 'FNR>1 || NR==1' {params.path}/*_gene.tsv >> {output.gene}
+            rm {params.path}/*.tsv
+        fi
+        """
+
+
+rule antismash_concat_cluster: 
+    """
+        Concatenate extracted data at the level of protocluster into one TSV file.
+    """
+    input:
+        expand("results/{mag}/{genome}/antismash_cluster.tsv", zip, mag=mags, genome=genomes)
+    output:
+        temp=temp("results/temp_cluster_list.tsv"),
+        concat="results/antismash_cluster.tsv"
+    params:
+        script="scripts/concatenate_tsv.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.concat}")
+
+
+rule antismash_concat_gene: 
+    """
+        Concatenate extracted data at the level of gene into one TSV file.
+    """
+    input:
+        expand("results/{mag}/{genome}/antismash_gene.tsv", zip, mag=mags, genome=genomes)
+    output:
+        temp=temp("results/temp_gene_list.tsv"),
+        concat="results/antismash_gene.tsv"
+    params:
+        script="scripts/concatenate_tsv.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.concat}")
+
+
+rule knownclusterblast_result:
+    """
+        Extract relevant data from antiSMASH KnownClusterBlast TXT output.
+    """
+    input:
+        "antismash/{mag}/{genome}/{genome}.faa"
+    output:
+        temp("results/{mag}/{genome}/knownclusterblast.tsv")
+    params:
+        module="Biopython/1.79-foss-2022a",
+        script="scripts/knownclusterblast.py",
+        path="antismash/{mag}/{genome}/knownclusterblast"
+    shell:
+        """
+        module load {params.module}
+        mkdir -p {params.path}
+        touch {output}
+        touch {params.path}/empty.txt
+        for file in {params.path}/*.txt ; do 
+            python3 {params.script} $file {params.path}/$(basename $file .txt).tsv
+        done
+        rm {params.path}/empty.txt
+        touch {params.path}/empty.tsv
+        for file in {params.path}/*.tsv ; do 
+            cat $file >> {output}
+        done
+        rm {params.path}/empty.tsv
+        """
+
+
+rule knownclusterblast_concat:
+    """
+        Concatenate extracted data from KnownClusterBlast into one TSV file.
+    """
+    input:
+        expand("results/{mag}/{genome}/knownclusterblast.tsv", zip, mag=mags, genome=genomes)
+    output:
+        temp=temp("results/temp_knownclusterblast_list.tsv"),
+        concat="results/knownclusterblast.tsv"
+    params:
+        script="scripts/concatenate_no_header.py"
+    run:
+        import os
+        input_files = input
+        temp_file = output.temp
+        if os.path.exists(temp_file):
+            os.remove(temp_file)
+        with open(temp_file, "w") as f:
+            f.write('\n'.join(input_files))
+        shell("python3 {params.script} {temp_file} {output.concat}")
+
+
+rule dram_result:
+    """
+        Extract relevant data from DRAM annotation into one TSV file.
+    """
+    input:
+        "dram/annotations.tsv"
+    output:
+        "results/dram_annotation.tsv"
+    params:
+        script="scripts/dram_extract.py",
+        module="Biopython/1.79-foss-2022a"
+    shell:
+        """
+        module load {params.module}
+        python3 {params.script} {input} {output}
+        rm -r -d results/*/
+        """
+
+
+# rule dram_concat: 
+#     """
+#         Concatenate extracted data from DRAM into one TSV file.
+#         This rule was discarded due to the modified version of the DRAM rule only generates one output file.
+#     """
+#     input:
+#         expand("results/{mag}/{genome}/dram_annotation.tsv", zip, mag=mags, genome=genomes)
+#     output:
+#         temp=temp("results/temp_annotation_list.tsv"),
+#         concat="results/dram_annotation.tsv"
+#     params:
+#         script="scripts/concatenate_tsv.py"
+#     run:
+#         import os
+#         input_files = input
+#         temp_file = output.temp
+#         if os.path.exists(temp_file):
+#             os.remove(temp_file)
+#         with open(temp_file, "w") as f:
+#             f.write('\n'.join(input_files))
+#         shell("python3 {params.script} {temp_file} {output.concat}")
