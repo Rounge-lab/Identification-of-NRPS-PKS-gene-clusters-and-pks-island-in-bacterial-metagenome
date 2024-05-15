@@ -1,6 +1,6 @@
 # Identification of NRPS and PKS gene clusters, including the pks island, in bacterial metagenome from CRCbiome
 
-This repository contains all code and scripts developed for the master's project "Identification of NRPS and PKS gene clusters, including the pks island, in bacterial metagenome from CRCbiome".
+This repository contains all code and scripts developed for the master's thesis "Identification of NRPS and PKS gene clusters, including the pks island, in bacterial metagenome from CRCbiome".
 
 Three Snakemake-based pipelines have been developed. For detailed description of each pipeline, please refer to the links below.
 1. [MAG-based identification of BGCs (not executed)](https://github.com/Rounge-lab/Identification-of-NRPS-PKS-gene-clusters-and-pks-island-in-bacterial-metagenome/blob/main/pipeline1/README.md).
