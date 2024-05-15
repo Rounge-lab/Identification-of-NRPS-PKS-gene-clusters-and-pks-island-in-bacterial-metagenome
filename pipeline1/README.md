@@ -5,7 +5,7 @@ This pipeline is developed to detect biosynthetic gene clusters (BGCs) within me
 
 ## Installation
 
-The necessary software and dependencies can be installed using the provided YAML files. The YAML files for the Conda environments are available [here](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pipeline1/envs).
+The necessary software and dependencies can be installed using the provided YAML files. The YAML files for the Conda environments are available [here](https://github.com/Rounge-lab/Identification-of-NRPS-PKS-gene-clusters-and-pks-island-in-bacterial-metagenome/tree/main/pipeline1/envs).
 ```
 conda env create -f [environment].yaml
 ```
@@ -30,6 +30,6 @@ The pipeline was designed to operate within [TSD](https://www.uio.no/english/ser
 
 ## Workflow Overview
 
-The pipeline comprises a total of 10 rules, including 1 "rule all", 3 rules for the antiSMASH detection process and the subsequent DRAM annotation, and the remaining 6 rules for the SanntiS detection process and the subsequent DRAM annotation. Two custom Python scripts are incorporated for file format conversion and file modification. The Python scripts are available [here](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/tree/main/pipeline1/scripts).
+The pipeline comprises a total of 10 rules, including 1 "rule all", 3 rules for the antiSMASH detection process and the subsequent DRAM annotation, and the remaining 6 rules for the SanntiS detection process and the subsequent DRAM annotation. Two custom Python scripts are incorporated for file format conversion and file modification. The Python scripts are available [here](https://github.com/Rounge-lab/Identification-of-NRPS-PKS-gene-clusters-and-pks-island-in-bacterial-metagenome/tree/main/pipeline1/scripts).
 
-![pipeline](https://github.com/Rounge-lab/Identification-of-pks-positive-bacterial-genomes-in-CRCbiome/blob/main/figures/pipeline1.png)
+![pipeline](https://github.com/Rounge-lab/Identification-of-NRPS-PKS-gene-clusters-and-pks-island-in-bacterial-metagenome/blob/main/figures/pipeline1.png)
