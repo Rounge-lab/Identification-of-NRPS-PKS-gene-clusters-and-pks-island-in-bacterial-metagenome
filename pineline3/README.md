@@ -1,4 +1,4 @@
-# Pipeline for Read Mapping
+# Read-based identification of pks island and E. coli
 
 This pipeline is developed to align sequencing libraries agains reference genomes of interest, generate mapping statitics, and extract the resulting data for further analysis. These processes utilized the tools [Bowtie2](https://github.com/BenLangmead/bowtie2) and [SAMtools](https://github.com/samtools/samtools). 
 
