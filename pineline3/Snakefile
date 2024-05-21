@@ -89,8 +89,6 @@ rule statistics:
         coverage="coverage/{ref}/{sample}.coverage.out"
     conda:
         "envs/bowtie2_samtools.yaml"
-    params:
-        bed="scripts/clb_genes.bed"
     shell:
         """
         samtools sort {input.bam} -o {output.bam_sorted}
