@@ -52,7 +52,7 @@ rule gbk_to_faa:
     input:
         "antismash/{mag}/{genome}/{genome}.gbk"
     output:
-        temp("antismash/{mag}/{genome}/{genome}.faa")
+        "antismash/{mag}/{genome}/{genome}.faa"
     params:
         path="antismash/{mag}/{genome}",
         script="scripts/convert_gbk_to_faa.py",
