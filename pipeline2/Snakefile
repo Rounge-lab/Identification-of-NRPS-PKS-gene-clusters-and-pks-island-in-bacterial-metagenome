@@ -58,7 +58,7 @@ rule gbk_to_faa:
     input:
         "antismash/{mag}/{genome}/{genome}.gbk"
     output:
-        temp("antismash/{mag}/{genome}/{genome}.faa")
+        "antismash/{mag}/{genome}/{genome}.faa"
     params:
         path="antismash/{mag}/{genome}",
         script="scripts/convert_gbk_to_faa.py",
@@ -73,7 +73,7 @@ rule gbk_to_faa:
         for file in {params.path}/*.region*.faa ; do 
             cat $file >> {output}
         done
-        rm {params.path}/*.region*.faa
+        rm {params.path}/empty.region001.faa
         """
 
 
@@ -202,7 +202,7 @@ rule antismash_concat_cluster:
         expand("results/{mag}/{genome}/antismash_cluster.tsv", zip, mag=mags, genome=genomes)
     output:
         temp=temp("results/temp_cluster_list.tsv"),
-        concat="results/antismash_cluster.tsv"
+        concat=temp("results/antismash_cluster.tsv")
     params:
         script="scripts/concatenate_tsv.py"
     run:
