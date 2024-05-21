@@ -73,7 +73,7 @@ rule gbk_to_faa:
         for file in {params.path}/*.region*.faa ; do 
             cat $file >> {output}
         done
-        rm {params.path}/empty.region001.faa
+        rm {params.path}/*.region*.faa
         """
 
 
