@@ -33,12 +33,13 @@ contig <- read_delim("PATH/contig_length.tsv", delim = "\t")
 distribution <- cluster %>% 
   group_by(Protocluster_Category) %>% 
   distinct(Genome, Protocluster_Category) %>% 
-  summarise(count = n())
+  summarise(count = n()) %>% 
+  mutate(mean_count = (count/49711)*100)
 distribution$Protocluster_Category <- factor(distribution$Protocluster_Category, levels = rev(c("NRPS", "PKS", "RiPP", "terpene", "other")))
 
-ggplot(distribution, aes(x = Protocluster_Category, y = count, fill = Protocluster_Category)) +
+ggplot(distribution, aes(x = Protocluster_Category, y = mean_count, fill = Protocluster_Category)) +
   geom_bar(stat = "identity", width = 0.6, color = "black") +
-  labs(title = "", x = "", y = "Number of MAGs") +
+  labs(title = "", x = "", y = "Prevalence of BGCs (%)") +
   coord_flip() +
   theme_bw() +
   theme(text = element_text(size = 14, family = "Arial"),
